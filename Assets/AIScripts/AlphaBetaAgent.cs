@@ -9,10 +9,11 @@ using System.Linq;
 /// </summary>
 public class AlphaBetaAgent : AIScript {
     int maxDepth = 5;
+    int maxMinimaxDepth = 3;
     public const float inf = Mathf.Infinity;
     public const float negInf = Mathf.NegativeInfinity;
 
-    //float[,] boardWeights = {
+    //float[,] boardWeights = { // Values to extreme maybe?
     //    {inf,    negInf, 100, 100, 100, 100, negInf, inf},    // Corners are super valuable 
     //    {negInf, negInf, 10,   10, 10,  10,  negInf, negInf}, // Spaces right next to corners are dangerous (see below)  
     //    {100,    10,      5,   5,  5,  5,    10,      100},
@@ -24,10 +25,10 @@ public class AlphaBetaAgent : AIScript {
     //};
 
     float[,] boardWeights = {
-        {1000, 0, 100, 100, 100, 100, 0,  1000},
-        {0,    0,  50, 50,  50,  50,  0,     0},
-        {100,  50, 30, 30,  30,  30,  50,  100},
-        {100,  50, 30,  1,   1,  30,  50,  100},
+        {1000, 0, 100, 100, 100, 100, 0,  1000}, // Corners are super valuable 
+        {0,    0,  50, 50,  50,  50,  0,     0}, // Spaces right next to corners are dangerous (see below)
+        {100,  50, 30, 30,  30,  30,  50,  100}, // Edges are pretty decent
+        {100,  50, 30,  1,   1,  30,  50,  100},  // Rest get less valuable towards the center
         {100,  50, 30,  1,   1,  30,  50,  100},
         {100,  50, 30, 30,  30,  30,  50,  100},
         {0,    0,  50, 50,  50,  50,   0,    0},
@@ -35,9 +36,8 @@ public class AlphaBetaAgent : AIScript {
     };
 
     public override KeyValuePair<int, int> makeMove(List<KeyValuePair<int, int>> availableMoves, BoardSpace[][] currentBoard, uint turnNumber) {
-        //return GetAction(currentBoard, availableMoves, turnNumber);
-        //return findBestMove(currentBoard, availableMoves, turnNumber);
-        return GetBestAction(currentBoard, availableMoves, turnNumber);
+        //return GetAction(currentBoard, availableMoves, turnNumber); // For AlphaBeta Minimax
+        return GetBestAction(currentBoard, availableMoves, turnNumber); // For AlphaBeta Negamax
     }
 
     public BoardSpace[][] updateBoard(BoardSpace[][] previousBoard, KeyValuePair<int, int> move, uint turnNumber) {
@@ -95,11 +95,108 @@ public class AlphaBetaAgent : AIScript {
         return Math.Abs(blackCount - whiteCount);
     }
 
-    /************************************************* failed implementation /*************************************************/
+    /* Computes the greatest number of pieces of your color, 
+       accounting for the value for each spot on the board, 
+       as well as pieces you take along the way. */
+    public float bestEvaluationFunction(BoardSpace[][] currentBoard) {
+        float blackCount = 0;
+        float whiteCount = 0;
+        int i = 0;
+        foreach (BoardSpace[] row in currentBoard) {
+            int j = 0;
+            foreach (BoardSpace space in row) {
+                switch (space) {
+                    case (BoardSpace.BLACK):
+                        blackCount += boardWeights[i, j];
+                        if (i != 7 && j != 7) {
+                            // Bonus because the end of our diagonal line is also our color
+                            if (currentBoard[i + (7 - i)][j + (7 - j)] == BoardSpace.BLACK) {
+                                blackCount += boardWeights[i + (7 - i), j + (7 - j)];
+
+                                for (int r = i; r < 8; r++) {
+                                    for (int c = j; c < 8; c++) {
+                                        if (currentBoard[r][c] == BoardSpace.WHITE) { // Opposite pieces in our way 
+                                            blackCount += boardWeights[r, c]; // So we take their value
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (currentBoard[i][j + (7 - j)] == BoardSpace.BLACK) { // End of our current row is same color
+                                whiteCount += boardWeights[i, j + (7 - j)];
+
+                                for (int c = j; c < 8; c++) {
+                                    if (currentBoard[i][c] == BoardSpace.WHITE) { // Opposite pieces in our way 
+                                        whiteCount += boardWeights[i, c]; // So we take their value
+                                    }
+                                }
+                            }
+
+                            if (currentBoard[i + (7 - i)][j] == BoardSpace.BLACK) { // End of our current column is same color
+                                whiteCount += boardWeights[i + (7 - i), j];
+
+                                for (int r = i; r < 8; r++) {
+                                    if (currentBoard[r][j] == BoardSpace.WHITE) { // Opposite pieces in our way 
+                                        whiteCount += boardWeights[r, j]; // So we take their value
+                                    }
+                                }
+                            }
+
+                        }
+                        break;
+
+                    case (BoardSpace.WHITE):
+                        whiteCount += boardWeights[i, j];
+                        if (i != 8 && j != 8) {
+                            // Bonus because the end of our diagonal line is also our color
+                            if (currentBoard[i + (7 - i)][j + (7 - j)] == BoardSpace.WHITE) {
+                                whiteCount += boardWeights[i + (7 - i), j + (7 - j)];
+
+                                for (int r = i; r < 8; r++) {
+                                    for (int c = j; c < 8; c++) {
+                                        if (currentBoard[r][c] == BoardSpace.BLACK) { // Opposite pieces in our way 
+                                            whiteCount += boardWeights[r, c]; // So we take their value
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (currentBoard[i][j + (7 - j)] == BoardSpace.WHITE) { // End of our current row is same color
+                                whiteCount += boardWeights[i, j + (7 - j)];
+
+                                for (int c = j; c < 8; c++) {
+                                    if (currentBoard[i][c] == BoardSpace.BLACK) { // Opposite pieces in our way 
+                                        whiteCount += boardWeights[i, c]; // So we take their value
+                                    }
+                                }
+                            }
+
+                            if (currentBoard[i + (7 - i)][j] == BoardSpace.WHITE) { // End of our current column is same color
+                                whiteCount += boardWeights[i + (7 - i), j];
+
+                                for (int r = i; r < 8; r++) {
+                                    if (currentBoard[r][j] == BoardSpace.BLACK) { // Opposite pieces in our way 
+                                        whiteCount += boardWeights[r, j]; // So we take their value
+                                    }
+                                }
+                            }
+
+                        }
+                        break;
+                }
+                j++;
+            }
+            i++;
+        }
+        return Math.Abs(blackCount - whiteCount);
+    }
+
+    /************************************************* AlphaBeta Minimax implementation /*************************************************/
 
     public float Value(BoardSpace[][] curBoard, int curDepth, float alpha, float beta, uint turnNumber) {
+        turnNumber++;
         List<KeyValuePair<int, int>> actions = BoardScript.GetValidMoves(curBoard, turnNumber);
-        if (curDepth <= 0 || curDepth == maxDepth || actions.Count == 0) {
+        if (curDepth <= 0 || actions.Count == 0) {
             return betterEvaluationFunction(curBoard);
         }
         if (turnNumber % 2 == 0) return MaxValue(curBoard, curDepth, alpha, beta, turnNumber);
@@ -111,16 +208,10 @@ public class AlphaBetaAgent : AIScript {
         List<KeyValuePair<int, int>> actions = BoardScript.GetValidMoves(curBoard, turnNumber);
         foreach (KeyValuePair<int, int> action in actions) {
             BoardSpace[][] successor = updateBoard(curBoard, action, turnNumber);
-            float newActionScore = Value(curBoard, (curDepth - 1), alpha, beta, turnNumber);
+            float newActionScore = Value(successor, (curDepth-1), alpha, beta, turnNumber++);
             value = Mathf.Min(value, newActionScore);
-            float currentScore = Value(curBoard, (curDepth - 1), alpha, beta, ++turnNumber);
-            //if (currentScore > value) maxScore = currentScore;
-            if (value < alpha) return value;
             beta = Mathf.Min(beta, value);
-
-            //if (newActionScore < value) value = newActionScore;
-            //if (newActionScore < beta) newActionScore = beta;
-            //if (alpha >= beta) break;
+            if (alpha >= beta) break;
         }
         return value;
     }
@@ -130,15 +221,10 @@ public class AlphaBetaAgent : AIScript {
         List<KeyValuePair<int, int>> actions = BoardScript.GetValidMoves(curBoard, turnNumber);
         foreach (KeyValuePair<int, int> action in actions) {
             BoardSpace[][] successor = updateBoard(curBoard, action, turnNumber);
-            float newActionScore = Value(curBoard, (curDepth - 1), alpha, beta, turnNumber);
-            value = Mathf.Min(value, newActionScore);
-            //int currentScore = value(curBoard, (curDepth - 1), alpha, beta, turnNumber);
-            if (value > beta) return value;
+            float newActionScore = Value(successor, (curDepth-1), alpha, beta, turnNumber++);
+            value = Mathf.Max(value, newActionScore);
             alpha = Mathf.Max(alpha, value);
-
-            //if (newActionScore > value) newActionScore = value;
-            //if (newActionScore > alpha) alpha = newActionScore;
-            //if (alpha >= beta) break;
+            if (alpha >= beta) break;
         }
         return value;
     }
@@ -150,8 +236,8 @@ public class AlphaBetaAgent : AIScript {
         float bestScore = Mathf.NegativeInfinity;
         foreach (KeyValuePair<int, int> mv in availableMoves) {
             float currentBoardScore;
-            BoardSpace[][] mvBoard = updateBoard(currentBoard, mv, turnNumber);
-            currentBoardScore = Value(currentBoard, (this.maxDepth - 1), alpha, beta, ++turnNumber);
+            BoardSpace[][] successor = updateBoard(currentBoard, mv, turnNumber);
+            currentBoardScore = Value(successor, this.maxMinimaxDepth, alpha, beta, turnNumber);
             if (currentBoardScore > bestScore) {
                 bestScore = currentBoardScore;
                 bestMove = mv;
@@ -160,13 +246,12 @@ public class AlphaBetaAgent : AIScript {
         return bestMove;
     }
 
-    /************************************************* failed implementation /*************************************************/
+    /*******************************************************************************************************************************************/
 
-    /************************************************* better implementation /*************************************************/
+    /************************************************* AlphaBeta Negamax implementation /*************************************************/
     public KeyValuePair<int, int> GetBestAction(BoardSpace[][] currentBoard, List<KeyValuePair<int, int>> availableMoves, uint turnNumber) {
         float beta = Mathf.NegativeInfinity;
         float alpha = Mathf.Infinity;
-        //return AlphaBetaNegamax(currentBoard, availableMoves, this.maxDepth, alpha, beta, turnNumber).Value;
 
         KeyValuePair<int, int> bestMove = new KeyValuePair<int, int>();
         KeyValuePair<float, KeyValuePair<int, int>> pair;
@@ -174,8 +259,7 @@ public class AlphaBetaAgent : AIScript {
         float bestScore = Mathf.NegativeInfinity;
         foreach (KeyValuePair<int, int> mv in availableMoves) {
             float currentBoardScore;
-            BoardSpace[][] mvBoard = updateBoard(currentBoard, mv, turnNumber);
-            //currentBoardScore = NegamaxAB(currentBoard, 0, alpha, beta, turnNumber, availableMoves).Key;
+            BoardSpace[][] childBoard = updateBoard(currentBoard, mv, turnNumber);
             pair = AlphaBetaNegamax(currentBoard, availableMoves, this.maxDepth, alpha, beta, turnNumber);
             currentBoardScore = pair.Key;
 
@@ -190,14 +274,15 @@ public class AlphaBetaAgent : AIScript {
     private KeyValuePair<float, KeyValuePair<int, int>> AlphaBetaNegamax(BoardSpace[][] curBoard,  List<KeyValuePair<int, int>> availableMoves, int curDepth, float alpha, float beta, uint turnNumber) {
         turnNumber++;
         KeyValuePair<int, int> bestMove;
-        float bestScore = Mathf.NegativeInfinity;
+        float bestScore =  int.MinValue;;
         KeyValuePair<float, KeyValuePair<int, int>> bestPair;
         List<KeyValuePair<int, int>> actions = BoardScript.GetValidMoves(curBoard, turnNumber);
 
         if (curDepth <= 0 || actions.Count == 0) {
             float score = betterEvaluationFunction(curBoard);
+            //float score = bestEvaluationFunction(curBoard);
+
             if (score < bestScore) {
-                KeyValuePair<int, int> lastAction = new KeyValuePair<int, int>(-1, -1);
                 return new KeyValuePair<float, KeyValuePair<int, int>>(bestScore, bestMove);
             }
             else {
@@ -220,10 +305,9 @@ public class AlphaBetaAgent : AIScript {
             if (alpha >= beta) break; 
         }
         bestPair = new KeyValuePair<float, KeyValuePair<int, int>>(bestScore, bestMove);
-        //return new KeyValuePair<float, KeyValuePair<int, int>>(bestScore, bestMove);
         return bestPair;
     }
-    /************************************************* better implementation /*************************************************/
+    /************************************************************************************************/
 
 }
 
