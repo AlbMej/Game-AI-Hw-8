@@ -280,13 +280,13 @@ public class AlphaBetaAgent : AIScript {
 
         if (curDepth <= 0 || actions.Count == 0) {
             float score = betterEvaluationFunction(curBoard);
-            //float score = bestEvaluationFunction(curBoard);
+            //float score = bestEvaluationFunction(curBoard); // Doesn't work as I hoped :/
 
             if (score < bestScore) {
                 return new KeyValuePair<float, KeyValuePair<int, int>>(bestScore, bestMove);
             }
             else {
-                KeyValuePair<int, int> lastAction = new KeyValuePair<int, int>(8,8);
+                KeyValuePair<int, int> lastAction = new KeyValuePair<int, int>(7,7);
                 return new KeyValuePair<float, KeyValuePair<int, int>>(score, lastAction);
             }
             
